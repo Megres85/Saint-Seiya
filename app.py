@@ -1,9 +1,6 @@
-
-
-import sqlite3
-from google import genai
 import pandas as pd
 import streamlit as st
+from google import genai
 
 # Configurazione della pagina
 st.set_page_config(
@@ -18,39 +15,40 @@ st.write(
     " all'Assistente IA su personaggi, abilità e meccaniche di gioco."
 )
 
-# Nome esatto del file del database su GitHub
-db_path = "dbsqlite"
+# --- CONFIGURA QUI IL NOME DEL TUO FILE EXCEL SU GITHUB ---
+excel_path = (
+    "saint.xlsx"  # Es. "saint_seiya_database.xlsx" (metti il nome esatto)
+)
 
 
-def get_tables():
-  """Estrae l'elenco delle tabelle dal database SQLite."""
+@st.cache_data
+def load_excel_sheets(path):
+  """Carica tutti i fogli del file Excel in un dizionario di DataFrame."""
   try:
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [t[0] for t in cursor.fetchall()]
-    conn.close()
-    return tables
-  except Exception:
-    return []
+    xls = pd.ExcelFile(path)
+    sheets = {sheet: xls.parse(sheet) for sheet in xls.sheet_names}
+    return sheets
+  except Exception as e:
+    return None
 
 
-tables = get_tables()
+sheets_data = load_excel_sheets(excel_path)
 
-# --- SEZIONE 1: CONSULTAZIONE DATABASE ---
+# --- SEZIONE 1: CONSULTAZIONE DATABASE (EXCEL) ---
 st.header("📊 Consultazione Database")
 
-if tables:
-  selected_table = st.selectbox("Seleziona una tabella da visualizzare:", tables)
-  if selected_table:
-    conn = sqlite3.connect(db_path)
-    df = pd.read_sql(f"SELECT * FROM [{selected_table}]", conn)
-    conn.close()
+if sheets_data:
+  selected_sheet = st.selectbox(
+      "Seleziona una sezione/tabella:", list(sheets_data.keys())
+  )
+  if selected_sheet:
+    df = sheets_data[selected_sheet]
     st.dataframe(df, use_container_width=True)
 else:
   st.warning(
-      "⚠️ Impossibile trovare o leggere il file del database `dbsqlite`."
-      " Assicurati che si trovi nella stessa cartella."
+      "⚠️ Impossibile trovare o leggere il file Excel su GitHub. Assicurati"
+      " che il nome nel codice (`tuo_file.xlsx`) corrisponda esattamente a"
+      " quello caricato."
   )
 
 st.divider()
@@ -58,19 +56,18 @@ st.divider()
 # --- SEZIONE 2: ASSISTENTE IA INTEGRATO (GEMINI) ---
 st.header("🤖 Assistente IA (Gemini)")
 
-# Configurazione della chiave API tramite i Secrets di Streamlit Cloud
 try:
   gemini_api_key = st.secrets["GEMINI_API_KEY"]
   client = genai.Client(api_key=gemini_api_key)
   ai_available = True
 except Exception:
+  ai_available_False = False
   ai_available = False
   st.warning(
       "⚠️ Per abilitare l'IA, inserisci la tua `GEMINI_API_KEY` nelle"
       " impostazioni 'Secrets' di Streamlit Cloud."
   )
 
-# Gestione della chat
 if "messages" not in st.session_state:
   st.session_state.messages = []
 
@@ -90,9 +87,12 @@ if prompt := st.chat_input(
     with st.chat_message("assistant"):
       with st.spinner("L'IA sta elaborando la risposta..."):
         try:
+          table_names = (
+              list(sheets_data.keys()) if sheets_data else []
+          )
           context_info = (
               f"Sei un esperto del gioco Saint Seiya: Legend of Justice."
-              f" Tabelle presenti nel database: {', '.join(tables)}."
+              f" Sezioni presenti nel database: {', '.join(table_names)}."
           )
           response = client.models.generate_content(
               model="gemini-2.5-flash",
