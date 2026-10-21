@@ -15,7 +15,7 @@ st.write(
     " personaggi, i marchi e le abilità, oppure chiedi all'Assistente IA."
 )
 
-# --- NOME DEL TUO FILE EXCEL AGGIORNATO ---
+# --- NOME DEL TUO FILE EXCEL ---
 excel_path = "saint.xlsx"
 
 
@@ -68,9 +68,7 @@ if sheets_data:
 
     if search_query:
       results_found = False
-      # Cerchiamo in tutte le schede del file Excel
       for sheet_name, df in sheets_data.items():
-        # Converte tutto in stringa per effettuare la ricerca senza problemi di tipo
         mask = df.astype(str).apply(
             lambda x: x.str.contains(search_query, case=False, na=False)
         ).any(axis=1)
@@ -123,7 +121,7 @@ for message in st.session_state.messages:
 
 if prompt := st.chat_input(
     "Es. Quali sono le migliori sinergie o come funzionano le abilità di"
-    " Shura DC?"
+    " Shura DC?" "oppure Megres è veramente il più bello di tutti?"
 ):
   st.session_state.messages.append({"role": "user", "content": prompt})
   with st.chat_message("user"):
@@ -149,7 +147,26 @@ if prompt := st.chat_input(
           )
           answer = response.text
         except Exception as e:
-          answer = f"Errore nella generazione della risposta: {e}"
+          error_str = str(e).lower()
+          # Gestione specifica per il superamento dei limiti di richieste (Rate Limit)
+          if (
+              "429" in error_str
+              or "quota" in error_str
+              or "exhausted" in error_str
+              or "resource" in error_str
+          ):
+            answer = (
+                "⚠️ **Hai rotto il cazzo, Limite di richieste temporaneo raggiunto**\n\nHai"
+                " inviato troppe domande in pochi minuti e l'API ha esaurito"
+                " momentaneamente la quota gratuita.\n\n🕒 Ti invito ad"
+                " attendere **30-60 secondi** prima di fare una nuova domanda"
+                " all'IA."
+            )
+          else:
+            answer = (
+                "⚠️ Si è verificato un piccolo problema tecnico durante la"
+                f" generazione della risposta. Dettaglio: {e}"
+            )
 
         st.markdown(answer)
     st.session_state.messages.append({"role": "assistant", "content": answer})
