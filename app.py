@@ -95,7 +95,7 @@ if prompt := st.chat_input(
               f" Sezioni presenti nel database: {', '.join(table_names)}."
           )
           response = client.models.generate_content(
-              model="gemini-2.5-flash",
+              model="gemini-3.8-flash",
               contents=(
                   f"Contesto: {context_info}\n\nDomanda dell'utente:"
                   f" {prompt}\n\nRispondi in modo dettagliato, chiaro e"
